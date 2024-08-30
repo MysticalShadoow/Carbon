@@ -9,6 +9,7 @@ function Component:new(x, y, width, height)
     instance.height = height or 100
     instance.children = {}
     instance.needsRedraw = true
+    instance.color = {1, 1, 1, 1} -- Default white color
     return instance
 end
 
@@ -22,6 +23,7 @@ function Component:draw()
         self:drawToCanvas()
         self.needsRedraw = false
     end
+    love.graphics.setColor(self.color)
     love.graphics.draw(self.canvas, self.x, self.y)
 end
 
