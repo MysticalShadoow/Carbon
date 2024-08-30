@@ -25,6 +25,9 @@ function Switch:new(x, y, size, options)
     instance.isHovered = false
     instance.isPressed = false
 
+    instance.x = x
+    instance.y = y
+
     -- Text options
     instance.text = options.text or ""
     instance.textColor = options.textColor or {0, 0, 0, 1}
