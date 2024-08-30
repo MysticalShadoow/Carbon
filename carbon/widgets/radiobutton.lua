@@ -27,6 +27,10 @@ function RadioButton:new(x, y, size, options)
     instance:updateDrawable()
     instance.animationProgress = 0
     instance.animationTime = 0
+
+    instance.x = x
+    instance.y = y
+
     return instance
 end
 
