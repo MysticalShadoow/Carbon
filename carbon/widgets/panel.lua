@@ -18,13 +18,58 @@ function Panel:new(x, y, width, height, options)
     instance.roundness = instance.options.roundness or 0 -- Default to 0 for no rounding
     instance.canvas = love.graphics.newCanvas(width, height) -- Initialize canvas
 
+    instance.x = x
+    instance.y = y
+
     -- Save initial dimensions
     instance.originalWidth = width
     instance.originalHeight = height
 
+    -- Add property to enable or disable culling overlapping widgets
+    instance.cullOverlapping = instance.options.cullOverlapping ~= false -- Default to true
+
+    -- Initialize a table to keep track of widgets with exact coordinates
+    instance.widgetMap = {}
+    instance.cache = {} -- Cache for culled widgets
+
     return instance
 end
 
+-- Check if a widget is within the visible area of the panel
+function Panel:isWidgetVisible(widget)
+    local widgetX = widget.x + self.scrollX + self.padding.left
+    local widgetY = widget.y + self.scrollY + self.padding.top
+    local widgetWidth = widget.width
+    local widgetHeight = widget.height
+
+    return widgetX < self.width and widgetY < self.height and
+           widgetX + widgetWidth > 0 and widgetY + widgetHeight > 0
+end
+
+-- Check if a widget overlaps with another
+function Panel:isWidgetOverlapping(widget, otherWidget)
+    return widget.x < otherWidget.x + otherWidget.width and
+           widget.x + widget.width > otherWidget.x and
+           widget.y < otherWidget.y + otherWidget.height and
+           widget.y + widget.height > otherWidget.y
+end
+
+-- Track widgets at exact coordinates
+function Panel:updateWidgetMap()
+    self.widgetMap = {}
+
+    for _, child in ipairs(self.children) do
+        if self:isWidgetVisible(child) then
+            local key = string.format("%d,%d", child.x, child.y)
+            if not self.widgetMap[key] then
+                self.widgetMap[key] = {}
+            end
+            table.insert(self.widgetMap[key], child)
+        end
+    end
+end
+
+-- Draw method with exact coordinate culling
 function Panel:draw()
     love.graphics.setCanvas(self.canvas)
     love.graphics.clear()
@@ -55,12 +100,34 @@ function Panel:draw()
                                  self.height - self.padding.top - self.padding.bottom)
     end
 
+    -- Update widget map
+    self:updateWidgetMap()
+
     -- Draw child elements with respect to padding and scroll
     love.graphics.push()
     love.graphics.translate(-self.scrollX - self.padding.left, -self.scrollY - self.padding.top)
-    for _, child in ipairs(self.children) do
-        child:draw()
+
+    for _, childList in pairs(self.widgetMap) do
+        if self.cullOverlapping then
+            if #childList == 1 then
+                -- Draw non-overlapping widget
+                childList[1]:draw()
+            elseif #childList > 1 then
+                -- Draw only the first widget in case of overlap
+                childList[1]:draw()
+                -- Cache the remaining widgets
+                for i = 2, #childList do
+                    table.insert(self.cache, childList[i])
+                end
+            end
+        else
+            -- Draw all widgets if culling is disabled
+            for _, child in ipairs(childList) do
+                child:draw()
+            end
+        end
     end
+
     love.graphics.pop()
 
     -- Disable clipping
@@ -73,6 +140,15 @@ function Panel:draw()
     -- Draw the canvas to the screen
     love.graphics.setColor(1, 1, 1)
     love.graphics.draw(self.canvas, self.x, self.y)
+end
+
+-- Call this method to clear the cache
+function Panel:clearCache()
+    self.cache = {}
+end
+
+function Panel:markDirty()
+    self.dirty = true
 end
 
 function Panel:addChild(child)
@@ -96,8 +172,10 @@ function Panel:addChild(child)
     end
 
     Component.addChild(self, child) -- Assuming Component has addChild method
-end
 
+    -- Mark widget map as dirty
+    self:markDirty()
+end
 
 function Panel:update(dt)
     -- Update child elements
