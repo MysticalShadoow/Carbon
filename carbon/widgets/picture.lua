@@ -12,6 +12,9 @@ function Picture:new(x, y, imagePath, options)
     instance.scaleX = instance.options.scaleX or 1
     instance.scaleY = instance.options.scaleY or 1
     instance.color = instance.options.color or {1, 1, 1, 1} -- Default to white (no tint)
+
+    instance.x = x
+    instance.y = y
     
     return instance
 end
@@ -42,7 +45,7 @@ function Picture:draw()
 end
 
 function Picture:update(dt)
-    -- Update logic, if any, for the Picture widget can be added here
+   
 end
 
 function Picture:resize(width, height)
