@@ -4,7 +4,7 @@ local Carbon = {}
 -- Require core components
 Carbon.Base = require("carbon.lib.component")
 Carbon.Button = require("carbon.widgets.button")
-Carbon.TextBox = require("carbon.widgets.textbox")
+Carbon.EditText = require("carbon.widgets.edittext")
 Carbon.ScrollBar = require("carbon.widgets.scrollbar")
 Carbon.Panel = require("carbon.widgets.panel")
 Carbon.CheckBox = require("carbon.widgets.checkbox")
