@@ -14,6 +14,9 @@ function TextLabel:new(x, y, width, height, text, options)
     instance.strokeWidth = options.strokeWidth or 1 -- Default stroke width
     instance.gradient = options.gradient or nil -- Default no gradient
     instance.textDrawable = love.graphics.newText(instance.font, instance.text)
+
+    instance.x = x
+    instance.y = y
     
     return instance
 end
