@@ -23,6 +23,10 @@ function CheckBox:new(x, y, size, options)
     instance.isPressed = false
     instance.textDrawable = love.graphics.newText(instance.font, instance.text)
     instance:updateDrawable()
+
+    instance.x = x
+    instance.y = y
+
     return instance
 end
 

@@ -45,7 +45,7 @@ function Picture:draw()
 end
 
 function Picture:update(dt)
-   
+    -- Update logic, if any, for the Picture widget can be added here
 end
 
 function Picture:resize(width, height)

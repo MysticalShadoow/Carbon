@@ -1,166 +1,258 @@
 local Component = require("carbon.lib.component")
-local CheckBox = setmetatable({}, { __index = Component })
-CheckBox.__index = CheckBox
+local Button = setmetatable({}, { __index = Component })
+Button.__index = Button
 
-function CheckBox:new(x, y, size, options)
-    local instance = setmetatable(Component.new(self, x, y, size, size), self)
-    instance.size = size
-    instance.checkmarkSize = options.checkmarkSize or (size * 0.6)  -- Default checkmark size
-    instance.checkmarkOffset = options.checkmarkOffset or (size * 0.2)  -- Default offset
-    instance.isChecked = options.isChecked or false
-    instance.backgroundColor = options.backgroundColor or {1, 1, 1, 1}
-    instance.checkedBackgroundColor = options.checkedBackgroundColor or {0.8, 0.8, 0.8, 1}
-    instance.borderColor = options.borderColor or {0, 0, 0, 1}
-    instance.checkedBorderColor = options.checkedBorderColor or {0, 0, 0, 1}
-    instance.borderWidth = options.borderWidth or 2
-    instance.checkColor = options.checkColor or {0, 0, 0, 1}
-    instance.text = options.text or ""
-    instance.font = love.graphics.newFont(14)
-    instance.fontColor = options.fontColor or {0, 0, 0, 1}
-    instance.checkedFontColor = options.checkedFontColor or {0, 0, 0, 1}
-    instance.onCheckChanged = options.onCheckChanged or function() end
-    instance.isHovered = false
-    instance.isPressed = false
-    instance.textDrawable = love.graphics.newText(instance.font, instance.text)
+-- Gradient shader code
+local gradientShaderCode = [[
+    extern vec4 color1;
+    extern vec4 color2;
+    vec4 effect(vec4 color, Image tex, vec2 tex_coords, vec2 screen_coords) {
+        float t = tex_coords.y;
+        return mix(color1, color2, t);
+    }
+]]
+
+function Button:new(x, y, width, height, text, options)
+    options = options or {}  -- Ensure options is a table, default to empty table if nil
+    
+    local instance = setmetatable(Component.new(self, x, y, width, height), self)
+    instance.text = text or ""
+    instance.onClick = options.onClick or function() end
+
+    -- Default properties
+    instance.font = options.font or love.graphics.newFont(14)  -- Customizable font
+    instance.fontColor = options.fontColor or {0, 0, 1, 1}  -- Default text color is blue
+    instance.upColor = options.upColor or {1, 1, 1, 1}  -- Default button color is solid white
+    instance.downColor = options.downColor or {0.6, 0.6, 0.6, 1}
+    instance.hoverColor = options.hoverColor or {0.9, 0.9, 0.9, 1}
+    instance.disableColor = options.disableColor or {0.5, 0.5, 0.5, 1}
+    instance.clickColor = options.clickColor or {1, 0, 0, 1}  -- Customizable click color
+    instance.strokeColor = options.strokeColor or {0, 0, 0, 1}
+    instance.stroke = options.stroke or 1
+    instance.iconImg = nil
+    instance.iconDir = options.iconDir or "left"  -- Customizable icon direction
+    instance.iconAndTextSpace = options.iconAndTextSpace or 6  -- Space between icon and text
+    instance.roundness = options.roundness or 0  -- Customizable roundness
+    instance.enabled = options.enabled ~= nil and options.enabled or true
+    instance.textAlignment = options.textAlignment or "center"  -- Customizable text alignment ("left", "center", "right")
+    instance.padding = options.padding or {left = 10, right = 10, top = 5, bottom = 5}  -- Customizable padding
+    instance.shadowColor = options.shadowColor or {0, 0, 0, 0.5}  -- Shadow effect color
+    instance.shadowOffset = options.shadowOffset or {x = 2, y = 2}  -- Shadow offset
+    instance.customDrawFunction = options.customDrawFunction or nil  -- Custom draw function
+
+    -- Create gradient shader
+    instance.gradientShader = love.graphics.newShader(gradientShaderCode)
+
+    -- Precompute dimensions
     instance:updateDrawable()
-
-    instance.x = x
-    instance.y = y
 
     return instance
 end
 
-function CheckBox:updateDrawable()
-    self.textDrawable = love.graphics.newText(self.font, self.text)
-    self.textWidth = self.textDrawable:getWidth()
-    self.textHeight = self.textDrawable:getHeight()
+function Button:setPosition(x, y)
+    self.x = x
+    self.y = y
 end
 
-function CheckBox:draw()
+function Button:getPosition()
+    return self.x, self.y
+end
+
+function Button:updateDrawable()
+    -- Update text drawable
+    self.textDrawable = love.graphics.newText(self.font, self.text)
+    
+    -- Calculate dimensions
+    self.textWidth = self.textDrawable:getWidth()
+    self.textHeight = self.textDrawable:getHeight()
+    if self.iconImg then
+        self.iconWidth = self.iconImg:getWidth()
+        self.iconHeight = self.iconImg:getHeight()
+    else
+        self.iconWidth = 0
+        self.iconHeight = 0
+    end
+end
+
+-- Draw the button
+function Button:draw()
+    if self.customDrawFunction then
+        self.customDrawFunction(self)
+        return
+    end
+
     local box = self:getBoundingBox()
     local x, y = box.left, box.top
     local w, h = box:getWidth(), box:getHeight()
 
-    -- Determine background color based on checked state
-    local bgColor = self.isChecked and self.checkedBackgroundColor or self.backgroundColor
-    love.graphics.setColor(bgColor)
-    love.graphics.rectangle("fill", x, y, w, h)
-
-    -- Determine border color based on checked state
-    local borderColor = self.isChecked and self.checkedBorderColor or self.borderColor
-    love.graphics.setColor(borderColor)
-    love.graphics.setLineWidth(self.borderWidth)
-    love.graphics.rectangle("line", x, y, w, h)
-
-    -- Draw the checkmark if the checkbox is checked
-    if self.isChecked then
-        love.graphics.setColor(self.checkColor)
-        local checkSize = self.checkmarkSize
-        local offset = (self.size - checkSize) / 2
-        love.graphics.setLineWidth(self.borderWidth * 2)
-        -- Centered checkmark coordinates
-        love.graphics.line(x + offset, y + offset + checkSize / 2, x + offset + checkSize / 2, y + offset + checkSize)
-        love.graphics.line(x + offset + checkSize / 2, y + offset + checkSize, x + offset + checkSize, y + offset)
+    -- Determine button color based on state
+    local color
+    if not self.enabled then
+        color = self.disableColor
+    elseif self.isPressed then
+        color = self.clickColor
+    elseif self.isHovered then
+        color = self.hoverColor
+    else
+        color = self.upColor
     end
 
-    -- Draw the text next to the checkbox
-    if self.text ~= "" then
-        local textColor = self.isChecked and self.checkedFontColor or self.fontColor
-        love.graphics.setColor(textColor)
-        love.graphics.draw(self.textDrawable, x + self.size + 5, y + (self.size - self.textHeight) / 2)
+    -- Draw shadow if enabled
+    if self.shadowColor and self.shadowOffset then
+        love.graphics.setColor(self.shadowColor)
+        love.graphics.rectangle("fill", x + self.shadowOffset.x, y + self.shadowOffset.y, w, h, self.roundness)
+    end
+
+    -- Check if the color is a gradient
+    if type(color) == "table" and #color == 2 then
+        -- Draw gradient
+        local gradient = love.graphics.newCanvas(w, h)
+        love.graphics.setCanvas(gradient)
+        love.graphics.setShader(self.gradientShader)
+        self.gradientShader:send("color1", color[1])
+        self.gradientShader:send("color2", color[2])
+        love.graphics.rectangle("fill", 0, 0, w, h, self.roundness)
+        love.graphics.setShader()
+        love.graphics.setCanvas()
+
+        -- Draw the gradient respecting the rounded corners
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(gradient, x, y)
+    else
+        -- Draw solid color rectangle with rounded corners
+        love.graphics.setColor(color)
+        love.graphics.rectangle("fill", x, y, w, h, self.roundness)
+    end
+
+    -- Draw button border
+    if self.enabled and self.stroke then
+        love.graphics.setColor(self.strokeColor)
+        love.graphics.setLineWidth(self.stroke)
+        love.graphics.rectangle("line", x, y, w, h, self.roundness)
+    end
+
+    -- Calculate text and icon positions
+    local space = (self.iconImg and self.textWidth > 0) and self.iconAndTextSpace or 0
+    local allWidth = space + self.textWidth + self.iconWidth
+
+    local textX = x + self.padding.left
+    local textY = (h - self.textHeight) / 2 + y + self.padding.top - self.padding.bottom
+    local iconX = 0
+    local iconY = (h - self.iconHeight) / 2 + y
+
+    if self.textAlignment == "center" then
+        textX = x + (w - allWidth) / 2
+    elseif self.textAlignment == "right" then
+        textX = x + w - allWidth - self.padding.right
+    end
+
+    if self.iconDir == "left" then
+        iconX = textX
+        textX = iconX + self.iconWidth + space
+    else
+        iconX = textX + self.textWidth + space
+    end
+
+    -- Draw text
+    if self.textDrawable then
+        love.graphics.setColor(self.fontColor)
+        love.graphics.draw(self.textDrawable, textX, textY)
+    end
+
+    -- Draw icon
+    if self.iconImg then
+        love.graphics.draw(self.iconImg, iconX, iconY)
     end
 end
 
 -- Handle mouse press events
-function CheckBox:mousepressed(x, y, button)
-    if button == 1 and self:isInBounds(x, y) then
-        self.isPressed = true
+function Button:mousepressed(x, y, button)
+    if button == 1 and self.enabled then
+        local box = self:getBoundingBox()
+        if x >= box.left and x <= box.right and y >= box.top and y <= box.bottom then
+            self.isPressed = true
+        end
     end
 end
 
 -- Handle mouse release events
-function CheckBox:mousereleased(x, y, button)
+function Button:mousereleased(x, y, button)
     if button == 1 and self.isPressed then
-        if self:isInBounds(x, y) then
-            self.isChecked = not self.isChecked
-            self.onCheckChanged(self.isChecked)
+        local box = self:getBoundingBox()
+        if x >= box.left and x <= box.right and y >= box.top and y <= box.bottom then
+            self.onClick()
         end
         self.isPressed = false
     end
 end
 
 -- Handle mouse movement events for hover state
-function CheckBox:mousemoved(x, y)
-    self.isHovered = self:isInBounds(x, y)
-end
-
--- Check if mouse is within the component's bounds
-function CheckBox:isInBounds(x, y)
+function Button:mousemoved(x, y)
     local box = self:getBoundingBox()
-    return x >= box.left and x <= box.right and y >= box.top and y <= box.bottom
+    self.isHovered = x >= box.left and x <= box.right and y >= box.top and y <= box.bottom
 end
 
--- Set the checkbox check color
-function CheckBox:setCheckColor(color)
-    self.checkColor = color
+-- Set the button icon image
+function Button:setIcon(icon)
+    self.iconImg = love.graphics.newImage(icon)
+    self:updateDrawable()
 end
 
--- Set the checkbox background color
-function CheckBox:setBackgroundColor(color)
-    self.backgroundColor = color
+-- Set the button icon direction
+function Button:setIconDir(dir)
+    self.iconDir = dir
 end
 
--- Set the checkbox checked background color
-function CheckBox:setCheckedBackgroundColor(color)
-    self.checkedBackgroundColor = color
-end
-
--- Set the checkbox border color
-function CheckBox:setBorderColor(color)
-    self.borderColor = color
-end
-
--- Set the checkbox checked border color
-function CheckBox:setCheckedBorderColor(color)
-    self.checkedBorderColor = color
-end
-
--- Set the checkbox border width
-function CheckBox:setBorderWidth(width)
-    self.borderWidth = width
-end
-
--- Set the checkbox text
-function CheckBox:setText(text)
+-- Set the button label text
+function Button:setText(text)
     self.text = text
     self:updateDrawable()
 end
 
--- Set the checkbox checkmark size
-function CheckBox:setCheckmarkSize(size)
-    self.checkmarkSize = size
+-- Set the button up color
+function Button:setUpColor(color)
+    self.upColor = color
 end
 
--- Set the checkbox checkmark offset
-function CheckBox:setCheckmarkOffset(offset)
-    self.checkmarkOffset = offset
+-- Set the button down color
+function Button:setDownColor(color)
+    self.downColor = color
 end
 
--- Set the checkbox padding
-function CheckBox:setPadding(padding)
-    self.padding = padding
+-- Set the button hover color
+function Button:setHoverColor(color)
+    self.hoverColor = color
 end
 
--- Get the bounding box of the checkbox
-function CheckBox:getBoundingBox()
+-- Set the button disable color
+function Button:setDisableColor(color)
+    self.disableColor = color
+end
+
+-- Set the button click color
+function Button:setClickColor(color)
+    self.clickColor = color
+end
+
+-- Set the button roundness
+function Button:setRoundness(roundness)
+    self.roundness = roundness
+end
+
+function Button:setCustomDrawFunction(drawFunction)
+    self.customDrawFunction = drawFunction
+end
+
+-- Define the getBoundingBox method
+function Button:getBoundingBox()
     return {
         left = self.x,
         top = self.y,
-        right = self.x + self.size,
-        bottom = self.y + self.size,
+        right = self.x + self.width,
+        bottom = self.y + self.height,
         getWidth = function(self) return self.right - self.left end,
         getHeight = function(self) return self.bottom - self.top end
     }
 end
 
-return CheckBox
+return Button

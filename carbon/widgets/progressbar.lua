@@ -13,7 +13,10 @@ function ProgressBar:new(x, y, width, height, options)
     instance.bgColor = options.bgColor or {0.8, 0.8, 0.8, 1} -- Default background color
     instance.roundness = options.roundness or 0 -- Default roundness
     instance.borderColor = options.borderColor or {0, 0, 0, 1} -- Default border color
-    instance.borderWidth = options.borderWidth or 2 -- Default border width
+    instance.borderWidth = options.borderWidth or 2 -- Default border 
+    
+    instance.x = x
+    instance.y = y
     
     return instance
 end
