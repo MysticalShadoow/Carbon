@@ -16,7 +16,9 @@ function Divider:new(x, y, length, options)
     instance.gradient = options.gradient or nil  -- Optional gradient color
     instance.shadow = options.shadow or false  -- Add shadow effect
     instance.shadowColor = options.shadowColor or {0, 0, 0, 0.5}  -- Shadow color
-
+    instance.x = x
+    instance.y = y
+    
     return instance
 end
 
