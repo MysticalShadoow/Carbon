@@ -1,7 +1,7 @@
 -- ui/init.lua
 local Carbon = {}
 
--- Require core components
+--core components
 Carbon.Base = require("carbon.lib.component")
 Carbon.Button = require("carbon.widgets.button")
 Carbon.EditText = require("carbon.widgets.edittext")
